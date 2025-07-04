@@ -63,12 +63,12 @@ class PurchaseBot(commands.Bot):
         # Sync slash commands
         await self.tree.sync()
         
-        # Set custom status/activity
-        activity = discord.Activity(
-            type=discord.ActivityType.custom,
-            name="Sử dụng /list và /rank để check"
-        )
-        await self.change_presence(activity=activity, status=discord.Status.online)
+        # Set custom status/activity - Fixed for Railway
+        try:
+            activity = discord.Game(name="Sử dụng /list và /rank để check")
+            await self.change_presence(activity=activity, status=discord.Status.online)
+        except Exception as e:
+            print(f"⚠️ Không thể set presence: {e}")
         
         print(f'🤖 Bot {self.user} đã sẵn sàng!')
 
