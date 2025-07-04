@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import json
 import os
+import sys
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -217,21 +218,29 @@ if __name__ == '__main__':
     
     if not TOKEN:
         print("❌ Lỗi: Bot token chưa được cấu hình!")
-        print("📝 Hướng dẫn:")
-        print("   1. Tạo bot tại https://discord.com/developers/applications")
-        print("   2. Copy bot token")
-        print("   3. Thêm environment variable:")
+        print("📝 Hướng dẫn cho Railway:")
+        print("   1. Vào Railway Dashboard > Settings > Environment")
+        print("   2. Thêm variable:")
         print("      Key: DISCORD_BOT_TOKEN")
         print("      Value: your_bot_token_here")
+        print("   3. Redeploy service")
         print("\n⚠️  Lưu ý: KHÔNG chia sẻ token với ai khác!")
         exit(1)
     
     try:
-        print("🚀 Đang khởi động Discord Store Bot...")
-        bot.run(TOKEN)
+        print("🚀 Đang khởi động Discord Store Bot trên Railway...")
+        print(f"📋 Python version: {sys.version}")
+        print(f"📦 Discord.py version: {discord.__version__}")
+        bot.run(TOKEN, log_handler=None)  # Disable default logging for Railway
     except discord.LoginFailure:
         print("❌ Lỗi đăng nhập: Bot token không hợp lệ!")
-        print("🔧 Kiểm tra lại token và thử lại.")
+        print("🔧 Kiểm tra token trong Railway Environment Variables.")
+        exit(1)
+    except discord.HTTPException as e:
+        print(f"❌ Lỗi HTTP Discord: {e}")
+        print("🔧 Kiểm tra kết nối mạng và Discord API status.")
+        exit(1)
     except Exception as e:
         print(f"❌ Lỗi không mong muốn: {e}")
-        print("🔧 Kiểm tra kết nối internet và thử lại.")
+        print("🔧 Kiểm tra logs trong Railway Dashboard.")
+        exit(1)

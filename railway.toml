@@ -1,0 +1,10 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "python main.py"
+restartPolicyType = "always"
+
+[env]
+# Environment variables will be set in Railway dashboard
+# DISCORD_BOT_TOKEN = "your_token_here"
