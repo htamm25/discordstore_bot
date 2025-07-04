@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "discord-purchase-bot"
+version = "1.0.0"
+description = "Discord bot for managing purchases and role assignments"
+author = "Your Name"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+discord-py = "^2.3.0"
+flask = "^2.3.0"
+python-dotenv = "^1.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
