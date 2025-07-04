@@ -3,6 +3,10 @@ from discord import app_commands
 from discord.ext import commands
 import json
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # File paths for data storage
 PURCHASE_FILE = 'purchases.json'
@@ -22,6 +26,8 @@ class PurchaseBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
         intents.members = True
+        intents.message_content = True
+        intents.guilds = True
         super().__init__(command_prefix='!', intents=intents)
         # Load persisted data
         self.purchases = self.load_data(PURCHASE_FILE)
