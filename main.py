@@ -205,82 +205,27 @@ async def setup_role_error(interaction, error):
     if isinstance(error, app_commands.errors.MissingPermissions):
         await interaction.response.send_message('Bạn cần quyền quản trị để sử dụng lệnh này.', ephemeral=True)
 
-# Keep the bot alive (for Replit)
-def keep_alive():
-    from threading import Thread
-    from flask import Flask
-    
-    app = Flask('')
-    
-    @app.route('/')
-    def home():
-        return "Bot is running!"
-    
-    def run():
-        app.run(host='0.0.0.0', port=8080)
-    
-    Thread(target=run).start()
-
 if __name__ == '__main__':
-    # Keep alive for Replit
-    keep_alive()
-    
     # Get token from environment variable
     TOKEN = os.getenv('DISCORD_BOT_TOKEN')
     
     if not TOKEN:
         print("❌ Lỗi: Bot token chưa được cấu hình!")
-        print("📝 Hướng dẫn cho Replit:")
+        print("📝 Hướng dẫn:")
         print("   1. Tạo bot tại https://discord.com/developers/applications")
         print("   2. Copy bot token")
-        print("   3. Trong Replit, vào Secrets tab và thêm:")
+        print("   3. Thêm environment variable:")
         print("      Key: DISCORD_BOT_TOKEN")
         print("      Value: your_bot_token_here")
         print("\n⚠️  Lưu ý: KHÔNG chia sẻ token với ai khác!")
         exit(1)
     
     try:
-        print("🚀 Đang khởi động bot trên Replit...")
+        print("🚀 Đang khởi động Discord Store Bot...")
         bot.run(TOKEN)
     except discord.LoginFailure:
         print("❌ Lỗi đăng nhập: Bot token không hợp lệ!")
-        print("🔧 Kiểm tra lại token trong Secrets và thử lại.")
+        print("🔧 Kiểm tra lại token và thử lại.")
     except Exception as e:
         print(f"❌ Lỗi không mong muốn: {e}")
         print("🔧 Kiểm tra kết nối internet và thử lại.")
-    
-    # Deploy** tự động
-    
-    ### **Bước 2: Verify 24/7 operation**
-    1. **Check** "Deployments" tab - status "Success"
-    2. **Monitor** logs để thấy bot running
-    3. **Test** Discord bot online status
-    4. **Verify** commands hoạt động: `/list`, `/rank`
-    
-    ---
-    
-    ## 📊 **Railway vs Platforms khác**
-    
-    | Platform | 24/7 Free | Keep Alive | Setup |
-    |----------|-----------|------------|-------|
-    | **Railway** | ✅ **Yes** | ❌ **Not needed** | ⭐⭐⭐⭐⭐ |
-    | **Render** | ✅ **Yes** | ❌ **Not needed** | ⭐⭐⭐⭐ |
-    | **Replit** | ❌ **No** | ✅ **Required** | ⭐⭐⭐ |
-    | **Glitch** | ❌ **No** | ✅ **Required** | ⭐⭐⭐⭐ |
-    | **Heroku** | ❌ **Paid** | ❌ **Not needed** | ⭐⭐⭐ |
-    
-    ---
-    
-    ## 🎯 **Code đã sẵn sàng cho Railway**
-    
-    Bot code của bạn đã hoàn hảo cho Railway:
-    ```python
-    # Bot đã có tất cả tính năng cần thiết:
-    # - Discord integration
-    # - Slash commands (/luu, /setup_role, /list, /rank)
-    # - Auto role assignment
-    # - Data persistence với JSON files
-    # - Custom status: "Sử dụng /list và /rank để check"
-    # - Error handling
-    # - Environment variable support
-    ```
