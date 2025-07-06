@@ -61,20 +61,39 @@ class PurchaseBot(commands.Bot):
                 self.loop.create_task(member.remove_roles(role, reason='Below purchase threshold'))
 
     async def setup_hook(self):
-        # Sync slash commands
-        await self.tree.sync()
-        
-        # Set custom status/activity
-        activity = discord.Activity(
-            type=discord.ActivityType.custom,
-            name="Sử dụng /list và /rank để check"
-        )
-        await self.change_presence(activity=activity, status=discord.Status.online)
-        
-        print(f'🤖 Bot {self.user} đã sẵn sàng!')
+        try:
+            # Sync slash commands
+            synced = await self.tree.sync()
+            print(f'✅ Đã đồng bộ {len(synced)} slash commands')
+            
+            # Set custom status/activity
+            activity = discord.Activity(
+                type=discord.ActivityType.watching,
+                name="LewLewStore | /list /rank"
+            )
+            await self.change_presence(activity=activity, status=discord.Status.online)
+            
+            print(f'🤖 Bot {self.user} đã sẵn sàng!')
+        except Exception as e:
+            print(f'❌ Lỗi trong setup_hook: {e}')
+            raise
 
 # Instantiate the bot
 bot = PurchaseBot()
+
+@bot.event
+async def on_ready():
+    print(f'✅ Bot đã đăng nhập thành công: {bot.user}')
+    print(f'📊 Bot ID: {bot.user.id}')
+    print(f'🌐 Kết nối tới {len(bot.guilds)} server(s)')
+    for guild in bot.guilds:
+        print(f'   - {guild.name} (ID: {guild.id})')
+
+@bot.event
+async def on_error(event, *args, **kwargs):
+    print(f'❌ Lỗi trong event {event}:')
+    import traceback
+    traceback.print_exc()
 
 @bot.tree.command(name='luu', description='Lưu thông tin người mua và sản phẩm đã bán')
 @app_commands.describe(
@@ -310,15 +329,35 @@ if __name__ == '__main__':
         print("   3. Thêm environment variable:")
         print("      Key: DISCORD_BOT_TOKEN")
         print("      Value: your_bot_token_here")
+        print("   4. Bật Privileged Gateway Intents:")
+        print("      - MESSAGE CONTENT INTENT")
+        print("      - SERVER MEMBERS INTENT")
         print("\n⚠️  Lưu ý: KHÔNG chia sẻ token với ai khác!")
         exit(1)
     
     try:
         print("🚀 Đang khởi động Discord Store Bot...")
+        print(f"📋 Bot ID: {TOKEN[:24]}...")
         bot.run(TOKEN)
-    except discord.LoginFailure:
-        print("❌ Lỗi đăng nhập: Bot token không hợp lệ!")
-        print("🔧 Kiểm tra lại token và thử lại.")
+    except discord.LoginFailure as e:
+        print(f"❌ Lỗi đăng nhập: {e}")
+        print("🔧 Kiểm tra:")
+        print("   - Bot token có đúng không?")
+        print("   - Bot có bị disable không?")
+        print("   - Privileged Gateway Intents đã bật chưa?")
+    except discord.PrivilegedIntentsRequired as e:
+        print(f"❌ Lỗi Privileged Intents: {e}")
+        print("🔧 Hướng dẫn sửa lỗi:")
+        print("   1. Vào https://discord.com/developers/applications")
+        print("   2. Chọn bot của bạn")
+        print("   3. Vào tab 'Bot'")
+        print("   4. Bật các Privileged Gateway Intents:")
+        print("      ✅ MESSAGE CONTENT INTENT")
+        print("      ✅ SERVER MEMBERS INTENT")
+        print("   5. Save Changes và restart bot")
     except Exception as e:
         print(f"❌ Lỗi không mong muốn: {e}")
+        print(f"📝 Chi tiết lỗi: {type(e).__name__}")
         print("🔧 Kiểm tra kết nối internet và thử lại.")
+        import traceback
+        traceback.print_exc()
