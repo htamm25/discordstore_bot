@@ -65,14 +65,6 @@ class PurchaseBot(commands.Bot):
             # Sync slash commands
             synced = await self.tree.sync()
             print(f'✅ Đã đồng bộ {len(synced)} slash commands')
-            
-            # Set custom status/activity
-            activity = discord.Activity(
-                type=discord.ActivityType.watching,
-                name="LewLewStore | /list /rank"
-            )
-            await self.change_presence(activity=activity, status=discord.Status.online)
-            
             print(f'🤖 Bot {self.user} đã sẵn sàng!')
         except Exception as e:
             print(f'❌ Lỗi trong setup_hook: {e}')
@@ -88,6 +80,17 @@ async def on_ready():
     print(f'🌐 Kết nối tới {len(bot.guilds)} server(s)')
     for guild in bot.guilds:
         print(f'   - {guild.name} (ID: {guild.id})')
+    
+    # Set custom status/activity after bot is ready
+    try:
+        activity = discord.Activity(
+            type=discord.ActivityType.watching,
+            name="LewLewStore | /list /rank"
+        )
+        await bot.change_presence(activity=activity, status=discord.Status.online)
+        print('🎯 Đã thiết lập bot status thành công')
+    except Exception as e:
+        print(f'⚠️ Không thể thiết lập bot status: {e}')
 
 @bot.event
 async def on_error(event, *args, **kwargs):
