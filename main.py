@@ -98,6 +98,34 @@ async def on_error(event, *args, **kwargs):
     import traceback
     traceback.print_exc()
 
+# Global error handler for rate limiting
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    if isinstance(error, discord.HTTPException):
+        if error.status == 429:  # Rate limited
+            await interaction.response.send_message(
+                '⏳ Bot đang bị rate limit. Vui lòng thử lại sau vài giây.',
+                ephemeral=True
+            )
+            return
+        elif error.status >= 500:  # Server errors
+            await interaction.response.send_message(
+                '🔧 Discord đang gặp sự cố. Vui lòng thử lại sau.',
+                ephemeral=True
+            )
+            return
+    
+    # Log unexpected errors
+    print(f'❌ Lỗi command không mong muốn: {error}')
+    import traceback
+    traceback.print_exc()
+    
+    if not interaction.response.is_done():
+        await interaction.response.send_message(
+            '❌ Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.',
+            ephemeral=True
+        )
+
 @bot.tree.command(name='luu', description='Lưu thông tin người mua và sản phẩm đã bán')
 @app_commands.describe(
     buyer='Người mua (mention)',
@@ -121,7 +149,7 @@ async def luu(interaction: discord.Interaction, buyer: discord.Member, quantity:
     # Update roles
     bot.update_roles(buyer)
     
-    # Send log message to configured channel
+    # Send log message to configured channel with rate limit protection
     guild_id = str(interaction.guild.id)
     if guild_id in bot.logs_config:
         log_channel_id = bot.logs_config[guild_id]
@@ -131,10 +159,15 @@ async def luu(interaction: discord.Interaction, buyer: discord.Member, quantity:
                 await log_channel.send(
                     f'📦 **Giao dịch mới:** {buyer.mention} đã mua x{quantity} {product} với giá {format_money(price)} VND'
                 )
+            except discord.HTTPException as e:
+                if e.status == 429:  # Rate limited
+                    print(f'⏳ Log channel bị rate limit: {e}')
+                else:
+                    print(f'❌ Lỗi gửi log: {e}')
             except discord.Forbidden:
-                pass  # Bot doesn't have permission to send messages in that channel
-            except Exception:
-                pass  # Channel might be deleted or other issues
+                print(f'❌ Bot không có quyền gửi tin nhắn trong channel logs')
+            except Exception as e:
+                print(f'❌ Lỗi không mong muốn khi gửi log: {e}')
 
 @bot.tree.command(name='setup_role', description='Thiết lập role dựa trên tổng tiền đã mua')
 @app_commands.describe(
@@ -213,16 +246,13 @@ async def rank(interaction: discord.Interaction):
     # Build description with rankings
     description_lines = []
     for i, (user_id, total) in enumerate(top_20, 1):
-        try:
-            member = guild.get_member(int(user_id))
-            if member:
-                user_mention = member.mention
-            else:
-                # Try to fetch user if not in guild
-                user = await bot.fetch_user(int(user_id))
-                user_mention = f"<@{user_id}>" if user else f"User {user_id}"
-        except:
-            user_mention = f"User {user_id}"
+        # Only use guild members to avoid rate limiting
+        member = guild.get_member(int(user_id))
+        if member:
+            user_mention = member.mention
+        else:
+            # Don't fetch users not in guild to avoid rate limiting
+            user_mention = f"<@{user_id}>"
         
         # Determine user's role based on spending
         assigned_role = None
