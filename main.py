@@ -3,7 +3,6 @@ from discord import app_commands
 from discord.ext import commands
 import json
 import os
-import sys
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -12,9 +11,10 @@ load_dotenv()
 # File paths for data storage
 PURCHASE_FILE = 'purchases.json'
 ROLE_FILE = 'roles.json'
+LOGS_FILE = 'logs.json'
 
 # Ensure data files exist
-for file_path in (PURCHASE_FILE, ROLE_FILE):
+for file_path in (PURCHASE_FILE, ROLE_FILE, LOGS_FILE):
     if not os.path.exists(file_path):
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump({}, f, ensure_ascii=False, indent=4)
@@ -33,6 +33,7 @@ class PurchaseBot(commands.Bot):
         # Load persisted data
         self.purchases = self.load_data(PURCHASE_FILE)
         self.role_thresholds = self.load_data(ROLE_FILE)
+        self.logs_config = self.load_data(LOGS_FILE)
 
     def load_data(self, path):
         with open(path, 'r', encoding='utf-8') as f:
@@ -63,12 +64,12 @@ class PurchaseBot(commands.Bot):
         # Sync slash commands
         await self.tree.sync()
         
-        # Set custom status/activity - Fixed for Railway
-        try:
-            activity = discord.Game(name="Sử dụng /list và /rank để check")
-            await self.change_presence(activity=activity, status=discord.Status.online)
-        except Exception as e:
-            print(f"⚠️ Không thể set presence: {e}")
+        # Set custom status/activity
+        activity = discord.Activity(
+            type=discord.ActivityType.custom,
+            name="Sử dụng /list và /rank để check"
+        )
+        await self.change_presence(activity=activity, status=discord.Status.online)
         
         print(f'🤖 Bot {self.user} đã sẵn sàng!')
 
@@ -88,11 +89,30 @@ async def luu(interaction: discord.Interaction, buyer: discord.Member, quantity:
     entry = {'quantity': quantity, 'product': product, 'price': price}
     bot.purchases.setdefault(user_id, []).append(entry)
     bot.save_data(PURCHASE_FILE, bot.purchases)
+    
+    # Send response to admin
     await interaction.response.send_message(
         f'Đã lưu: {buyer.mention} mua **{quantity}×{product}** với giá **{format_money(price)} VND**',
         ephemeral=True
     )
+    
+    # Update roles
     bot.update_roles(buyer)
+    
+    # Send log message to configured channel
+    guild_id = str(interaction.guild.id)
+    if guild_id in bot.logs_config:
+        log_channel_id = bot.logs_config[guild_id]
+        log_channel = interaction.guild.get_channel(log_channel_id)
+        if log_channel:
+            try:
+                await log_channel.send(
+                    f'📦 **Giao dịch mới:** {buyer.mention} đã mua x{quantity} {product} với giá {format_money(price)} VND'
+                )
+            except discord.Forbidden:
+                pass  # Bot doesn't have permission to send messages in that channel
+            except Exception:
+                pass  # Channel might be deleted or other issues
 
 @bot.tree.command(name='setup_role', description='Thiết lập role dựa trên tổng tiền đã mua')
 @app_commands.describe(
@@ -201,6 +221,62 @@ async def rank(interaction: discord.Interaction):
     
     await interaction.response.send_message(embed=embed)
 
+@bot.tree.command(name='checklist', description='Xem thông tin mua hàng của người khác (Admin only)')
+@app_commands.describe(
+    user='Người dùng cần kiểm tra'
+)
+@app_commands.checks.has_permissions(administrator=True)
+async def checklist(interaction: discord.Interaction, user: discord.Member):
+    guild = interaction.guild
+    entries = bot.get_user_purchases(user.id)
+
+    embed = discord.Embed(color=0xDA1EF3)
+    embed.set_author(name=guild.name, icon_url=(guild.icon.url if guild.icon else None))
+    if guild.icon:
+        embed.set_thumbnail(url=guild.icon.url)
+
+    if not entries:
+        embed.description = f'{user.mention} chưa mua hàng tại LewLewStore.'
+        default_roles = [rid for rid, t in bot.role_thresholds.items() if t == 0]
+        role_obj = guild.get_role(int(default_roles[0])) if default_roles else None
+        embed.add_field(
+            name='Hạng',
+            value=(role_obj.mention if role_obj else 'Chưa có'),
+            inline=False
+        )
+    else:
+        # Build lines with arrow and formatted numbers
+        lines = [f'<a:prettyarrowR1:1389650470041026681> x{e["quantity"]} {e["product"]} : {format_money(e["price"])} VND' for e in entries]
+        total = bot.get_user_total(user.id)
+        # Separate product list and total on distinct lines with sparkles icon
+        description = f'## {user.mention} đã mua:\n' + '\n'.join(lines) + f'\n\n<a:Sparkles:1323242208056447007> **Tổng chi:** {format_money(total)} VND'
+        embed.description = description
+        
+        # Determine highest rank
+        assigned_role = None
+        for rid, threshold in sorted(bot.role_thresholds.items(), key=lambda x: x[1]):
+            if total >= threshold:
+                assigned_role = rid
+        if assigned_role:
+            role_obj = guild.get_role(int(assigned_role))
+            embed.add_field(name='Hạng', value=(role_obj.mention if role_obj else 'Chưa có'), inline=False)
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name='setup_logs', description='Thiết lập kênh logs cho lệnh /luu')
+@app_commands.describe(
+    channel='Kênh để gửi logs'
+)
+@app_commands.checks.has_permissions(administrator=True)
+async def setup_logs(interaction: discord.Interaction, channel: discord.TextChannel):
+    guild_id = str(interaction.guild.id)
+    bot.logs_config[guild_id] = channel.id
+    bot.save_data(LOGS_FILE, bot.logs_config)
+    await interaction.response.send_message(
+        f'Đã thiết lập kênh logs: {channel.mention}',
+        ephemeral=True
+    )
+
 # Error handlers
 @luu.error
 async def luu_error(interaction, error):
@@ -212,35 +288,37 @@ async def setup_role_error(interaction, error):
     if isinstance(error, app_commands.errors.MissingPermissions):
         await interaction.response.send_message('Bạn cần quyền quản trị để sử dụng lệnh này.', ephemeral=True)
 
+@checklist.error
+async def checklist_error(interaction, error):
+    if isinstance(error, app_commands.errors.MissingPermissions):
+        await interaction.response.send_message('Bạn cần quyền quản trị để sử dụng lệnh này.', ephemeral=True)
+
+@setup_logs.error
+async def setup_logs_error(interaction, error):
+    if isinstance(error, app_commands.errors.MissingPermissions):
+        await interaction.response.send_message('Bạn cần quyền quản trị để sử dụng lệnh này.', ephemeral=True)
+
 if __name__ == '__main__':
     # Get token from environment variable
     TOKEN = os.getenv('DISCORD_BOT_TOKEN')
     
     if not TOKEN:
         print("❌ Lỗi: Bot token chưa được cấu hình!")
-        print("📝 Hướng dẫn cho Railway:")
-        print("   1. Vào Railway Dashboard > Settings > Environment")
-        print("   2. Thêm variable:")
+        print("📝 Hướng dẫn:")
+        print("   1. Tạo bot tại https://discord.com/developers/applications")
+        print("   2. Copy bot token")
+        print("   3. Thêm environment variable:")
         print("      Key: DISCORD_BOT_TOKEN")
         print("      Value: your_bot_token_here")
-        print("   3. Redeploy service")
         print("\n⚠️  Lưu ý: KHÔNG chia sẻ token với ai khác!")
         exit(1)
     
     try:
-        print("🚀 Đang khởi động Discord Store Bot trên Railway...")
-        print(f"📋 Python version: {sys.version}")
-        print(f"📦 Discord.py version: {discord.__version__}")
-        bot.run(TOKEN, log_handler=None)  # Disable default logging for Railway
+        print("🚀 Đang khởi động Discord Store Bot...")
+        bot.run(TOKEN)
     except discord.LoginFailure:
         print("❌ Lỗi đăng nhập: Bot token không hợp lệ!")
-        print("🔧 Kiểm tra token trong Railway Environment Variables.")
-        exit(1)
-    except discord.HTTPException as e:
-        print(f"❌ Lỗi HTTP Discord: {e}")
-        print("🔧 Kiểm tra kết nối mạng và Discord API status.")
-        exit(1)
+        print("🔧 Kiểm tra lại token và thử lại.")
     except Exception as e:
         print(f"❌ Lỗi không mong muốn: {e}")
-        print("🔧 Kiểm tra logs trong Railway Dashboard.")
-        exit(1)
+        print("🔧 Kiểm tra kết nối internet và thử lại.")
