@@ -329,6 +329,32 @@ async def setup_logs(interaction: discord.Interaction, channel: discord.TextChan
         ephemeral=True
     )
 
+@bot.tree.command(name='respond', description='Hiển thị thông tin tài khoản thanh toán')
+@app_commands.describe(
+    responder='Chọn loại tài khoản'
+)
+@app_commands.choices(responder=[
+    app_commands.Choice(name='Ngân hàng MB Bank', value='ostk'),
+    app_commands.Choice(name='Ví MOMO', value='omomo')
+])
+async def respond(interaction: discord.Interaction, responder: str):
+    if responder == 'ostk':
+        embed = discord.Embed(
+            title="Số tài khoản ngân hàng của tớ đây nhé",
+            description="```MB BANK```\n```7417766666```",
+            color=0x040fbd
+        )
+        embed.set_image(url="https://media.discordapp.net/attachments/1250243575426322552/1385204829705736263/IMG_4979.jpg?ex=686eed47&is=686d9bc7&hm=b30a36e5715c21c04fb9dc233c5765650e40d67185edf9bc61dd821d7c736e8f&=&format=webp&width=289&height=375")
+    elif responder == 'omomo':
+        embed = discord.Embed(
+            title="Tài khoản ví MOMO của tớ đây nhé !!!",
+            description="```0915688407```",
+            color=0xfc2ab9
+        )
+        embed.set_image(url="https://cdn.discordapp.com/attachments/1250243575426322552/1310553579547004928/IMG_3928.jpg?ex=686eede2&is=686d9c62&hm=0c5bce3fce3e79f3d34c748fed15b1d4651f4e2d1a66dbda7eedcdfd3567573f")
+    
+    await interaction.response.send_message(embed=embed)
+
 # Error handlers
 @luu.error
 async def luu_error(interaction, error):
