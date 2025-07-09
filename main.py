@@ -329,7 +329,7 @@ async def setup_logs(interaction: discord.Interaction, channel: discord.TextChan
         ephemeral=True
     )
 
-@bot.tree.command(name='respond', description='Hiển thị thông tin tài khoản thanh toán')
+@bot.tree.command(name='bank', description='Hiển thị thông tin tài khoản thanh toán')
 @app_commands.describe(
     responder='Chọn loại tài khoản'
 )
